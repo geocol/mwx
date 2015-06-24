@@ -1,12 +1,15 @@
 package MWX::Web;
 use strict;
 use warnings;
+use Path::Tiny;
 use Promise;
 use Wanage::HTTP;
 use Warabe::App;
 use Web::DOM::Document;
 use Text::MediaWiki::Parser;
 use AnyEvent::MediaWiki::Source;
+use Temma::Parser;
+use Temma::Processor;
 
 sub _parse ($$) {
   my $doc = new Web::DOM::Document;
@@ -93,8 +96,60 @@ sub main ($$) {
     });
   }
 
+  if (@$path == 1 and $path->[0] eq '') {
+    # /
+    return $class->temma ($app->http, 'index.html.tm', {});
+  } elsif (@$path == 1 and $path->[0] eq 'xml') {
+    # /xml
+    return $class->temma ($app->http, 'xml.html.tm', {});
+  }
+
   return $app->send_error (404);
 } # main
+
+my $TemplatesPath = path (__FILE__)->parent->parent->parent->child ('templates');
+
+use Path::Class; # XXX
+sub temma ($$$$) {
+  my ($class, $http, $template_path, $args) = @_;
+  $template_path = $TemplatesPath->child ($template_path);
+  die "|$template_path| not found" unless $template_path->is_file;
+
+  $http->set_response_header ('Content-Type' => 'text/html; charset=utf-8');
+  my $fh = MWX::Web::TemmaPrinter->new_from_http ($http);
+  my $ok;
+  my $p = Promise->new (sub { $ok = $_[0] });
+
+  my $doc = new Web::DOM::Document;
+  my $parser = Temma::Parser->new;
+  $parser->parse_f (file ($template_path) => $doc); # XXX blocking
+  my $processor = Temma::Processor->new;
+  $processor->process_document ($doc => $fh, ondone => sub {
+    $http->close_response_body;
+    $ok->();
+  }, args => $args);
+
+  return $p;
+} # temma
+
+package MWX::Web::TemmaPrinter;
+
+sub new_from_http ($$) {
+  return bless {http => $_[1]}, $_[0];
+} # new_from_http
+
+sub print ($$) {
+  $_[0]->{value} .= $_[1];
+  if (length $_[0]->{value} > 1024*10 or length $_[1] == 0) {
+    $_[0]->{http}->send_response_body_as_text ($_[0]->{value});
+    $_[0]->{value} = '';
+  }
+} # print
+
+sub DESTROY {
+  $_[0]->{http}->send_response_body_as_text ($_[0]->{value})
+      if length $_[0]->{value};
+} # DESTROY
 
 1;
 
