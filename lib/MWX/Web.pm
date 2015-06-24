@@ -59,6 +59,8 @@ sub psgi_app ($) {
   };
 } # psgi_app
 
+my $Cache = {};
+
 sub main ($$) {
   my ($class, $app) = @_;
   my $path = $app->path_segments;
@@ -69,7 +71,15 @@ sub main ($$) {
     my $name = _name $path->[2];
     my $wp = _wp $path->[0], $path->[1]
         or $app->throw_error (404, reason_phrase => 'Wiki not found');
-    return Promise->from_cv ($wp->get_source_text_by_name_as_cv ($name))->then (sub {
+    return Promise->resolve (do {
+      if (exists $Cache->{$path->[0], $path->[1], $path->[2]}) {
+        $Cache->{$path->[0], $path->[1], $path->[2]}; # or undef
+      } else {
+        Promise->from_cv ($wp->get_source_text_by_name_as_cv ($name))->then (sub {
+          return $Cache->{$path->[0], $path->[1], $path->[2]} = $_[0]; # or undef
+        });
+      }
+    })->then (sub {
       return $app->send_error (404, reason_phrase => 'Page not found')
           unless defined $_[0];
       if ($path->[3] eq 'xml') {
