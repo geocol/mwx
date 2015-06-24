@@ -29,7 +29,7 @@ sub parse_value ($$);
 my $IncludeDefs = {};
 $IncludeDefs->{$_}->{is_structure} = 1 for qw(
       駅情報
-      ウィキ座標2段度分秒
+      ウィキ座標2段度分秒 ウィキ座標度分秒
       駅番号c
       駅番号s
 );
@@ -40,6 +40,8 @@ for (
   ['駅情報', '前の駅', ['next-station']],
   ['駅情報', '次の駅', ['next-station']],
   ['駅情報', '開業年月日', ['date']],
+  ['駅情報', '所在地', ['ignore-links']],
+  ['駅情報', '所属路線', ['with-annotation', '路線']],
 ) {
   $IncludeDefs->{$_->[0]}->{params}->{$_->[1]}->{parsing_rules} = $_->[2];
 }
@@ -65,11 +67,6 @@ $RuleDefs->{'with-annotation'} = {
                 _expand_l $nodes->[0],
                 $1];
       }
-    } elsif (@$nodes == 1 and $nodes->[0]->node_type == 3) {
-      my $v = _n $nodes->[0]->text_content;
-      if ($v =~ /^([^()]+) ?\(([^()]+)\)$/) {
-        return ['with-annotation', $1, $2];
-      }
     } elsif (@$nodes >= 2 and
              $nodes->[0]->local_name eq 'l' and not $nodes->[0]->has_attribute ('embed')) {
       my $v = _n join '', map { $_->text_content } @$nodes[1..$#$nodes];
@@ -83,6 +80,11 @@ $RuleDefs->{'with-annotation'} = {
         } @$nodes) {
           return ['with-annotation', _expand_l $nodes->[0], $v];
         }
+      }
+    } elsif (not grep { $_->node_type == 1 } @$nodes) {
+      my $v = _n join '', map { $_->text_content } @$nodes;
+      if ($v =~ /^([^()]+)\(([^()]+)\)$/) {
+        return ['with-annotation', $1, $2];
       }
     }
     return undef;
@@ -143,17 +145,50 @@ $RuleDefs->{'nested-list'} = {
 $RuleDefs->{'ignore-links'} = {
   code => sub {
     my ($ctx_def, $nodes) = @_;
+    my $has_l = 0;
     if (@$nodes and not grep {
       not (
         $_->node_type == 3 or
-        ($_->local_name eq 'l' and not $_->has_attribute ('embed'))
+        ($_->local_name eq 'l' and not $_->has_attribute ('embed') and $has_l = 1) or
+        ($_->local_name eq 'ref')
       )
     } @$nodes) {
-      return ['string', join '', map { $_->text_content } @$nodes];
+      return parse_value $ctx_def, [map {
+        if ($_->node_type == 1) {
+          if ($_->local_name eq 'ref') {
+            ();
+          } else { # l
+            $_->child_nodes->to_list;
+          }
+        } else {
+          $_;
+        }
+      } @$nodes] if $has_l;
     }
     return undef;
   },
 }; # ignore-links
+$RuleDefs->{'路線'} = {
+  code => sub {
+    my ($ctx_def, $nodes) = @_;
+    my @node;
+    for (@$nodes) {
+      if ($_->node_type == 1) {
+        push @node, $_;
+      } elsif ($_->node_type == 3) {
+        return undef if $_->text_content =~ /\S/;
+      }
+    }
+    if (@node == 2 and
+        $node[0]->local_name eq 'span' and $node[0]->has_attribute ('style') and
+        $node[1]->local_name eq 'l' and not $node[1]->has_attribute ('embed')) {
+      if ($node[0]->get_attribute ('style') =~ /^\s*color:\s*(\S+)\s*$/) {
+        return ['路線-colored', _expand_l $node[1], $1];
+      }
+    }
+    return undef;
+  },
+}; # 路線
 
 sub parse_value ($$) {
   my ($ctx_def, $parent) = @_;
@@ -202,21 +237,6 @@ sub parse_value ($$) {
     return ['with-comment', (parse_value $ctx_def, \@value), map { $_->text_content } @comment];
   }
 
-  if (@value == 1) {
-    if ($value[0]->node_type == 1) {
-      my $ln = $value[0]->local_name;
-      if ($ln eq 'l' and not $value[0]->has_attribute ('embed')) {
-        return _expand_l $value[0];
-      } elsif ($ln eq 'include') {
-        my $x = parse_include $value[0];
-        return ['='.$value[0]->get_attribute ('wref'), $x] if defined $x;
-      }
-      return ['unparsed', $value[0]->outer_html];
-    } elsif ($value[0]->node_type == 3) {
-      return ['string', $value[0]->text_content];
-    }
-  }
-
   for my $rule_name (@{$ctx_def->{parsing_rules} or []}) {
     my $rule_def = $RuleDefs->{$rule_name};
     unless ($rule_def->{code}) {
@@ -226,6 +246,23 @@ sub parse_value ($$) {
     my $v = $rule_def->{code}->($ctx_def, \@value);
     if (defined $v) {
       return $v;
+    }
+  }
+
+  if (@value == 1) {
+    if ($value[0]->node_type == 1) {
+      my $ln = $value[0]->local_name;
+      if ($ln eq 'l' and not $value[0]->has_attribute ('embed')) {
+        return _expand_l $value[0];
+      } elsif ($ln eq 'include') {
+        my $x = parse_include $value[0];
+        return ['='.$value[0]->get_attribute ('wref'), $x] if defined $x;
+      } elsif ($ln eq 'small') {
+        return ['small', parse_value $ctx_def, $value[0]->child_nodes->to_a];
+      }
+      return ['unparsed', $value[0]->outer_html];
+    } elsif ($value[0]->node_type == 3) {
+      return ['string', $value[0]->text_content];
     }
   }
 

@@ -34,6 +34,7 @@
   <input name=pageName>
 
   <input type=hidden name=format value=text>
+  <button type=submit onclick="elements.format.value = 'open'">Original</button>
   <button type=submit onclick="elements.format.value = 'text'">Text</button>
   <button type=submit onclick="elements.format.value = 'xml'">XML</button>
   <button type=submit onclick="elements.format.value = 'extracted.json'">Data</button>

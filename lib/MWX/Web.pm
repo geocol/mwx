@@ -4,6 +4,7 @@ use warnings;
 use Path::Tiny;
 use Promise;
 use JSON::PS;
+use Wanage::URL;
 use Wanage::HTTP;
 use Warabe::App;
 use Web::DOM::Document;
@@ -70,14 +71,20 @@ sub main ($$) {
   my ($class, $app) = @_;
   my $path = $app->path_segments;
 
-  # /{k1}/{k2}/{name}/{text|xml|extracted.json}
+  # /{k1}/{k2}/{name}/{text|xml|extracted.json|open}
   if (@$path == 4 and
       ($path->[3] eq 'text' or
        $path->[3] eq 'xml' or
-       $path->[3] eq 'extracted.json')) {
+       $path->[3] eq 'extracted.json' or
+       $path->[3] eq 'open')) {
     my $name = _name $path->[2];
     my $wp = _wp $path->[0], $path->[1]
         or $app->throw_error (404, reason_phrase => 'Wiki not found');
+    if ($path->[3] eq 'open') {
+      $name =~ s/ /_/g;
+      return $app->send_redirect ($wp->top_url . 'wiki/' . percent_encode_c $name);
+    }
+
     return Promise->resolve (do {
       if (exists $Cache->{$path->[0], $path->[1], $path->[2]}) {
         $Cache->{$path->[0], $path->[1], $path->[2]}; # or undef
