@@ -1,7 +1,11 @@
 <title>MWX</title>
 <style>
   iframe[name=pageView] {
-    width: 100%;
+    width: 45%;
+    height: 20em;
+  }
+  iframe[name=dataView] {
+    width: 45%;
     height: 20em;
   }
 </style>
@@ -14,8 +18,10 @@
             '/' + encodeURIComponent (form.format.value);
   if (form.format.value === 'xml') {
     url = '/xml?' + encodeURIComponent (url);
+  } else if (form.format.value === 'extracted.json') {
+    url = '/json?' + encodeURIComponent (url);
   }
-  window.pageView.location = url;
+  window[form.format.value === 'extracted.json' ? 'dataView' : 'pageView'].location = url;
 ">
   <select name=wiki>
     <option value=p>Wikipedia
@@ -30,6 +36,8 @@
   <input type=hidden name=format value=text>
   <button type=submit onclick="elements.format.value = 'text'">Text</button>
   <button type=submit onclick="elements.format.value = 'xml'">XML</button>
+  <button type=submit onclick="elements.format.value = 'extracted.json'">Data</button>
 </form>
 
 <iframe name=pageView></iframe>
+<iframe name=dataView></iframe>

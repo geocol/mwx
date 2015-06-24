@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Path::Tiny;
 use Promise;
+use JSON::PS;
 use Wanage::HTTP;
 use Warabe::App;
 use Web::DOM::Document;
@@ -10,6 +11,7 @@ use Text::MediaWiki::Parser;
 use AnyEvent::MediaWiki::Source;
 use Temma::Parser;
 use Temma::Processor;
+use MWX::Extractor;
 
 sub _parse ($$) {
   my $doc = new Web::DOM::Document;
@@ -68,9 +70,11 @@ sub main ($$) {
   my ($class, $app) = @_;
   my $path = $app->path_segments;
 
-  # /{k1}/{k2}/{name}/{text|xml}
+  # /{k1}/{k2}/{name}/{text|xml|extracted.json}
   if (@$path == 4 and
-      ($path->[3] eq 'text' or $path->[3] eq 'xml')) {
+      ($path->[3] eq 'text' or
+       $path->[3] eq 'xml' or
+       $path->[3] eq 'extracted.json')) {
     my $name = _name $path->[2];
     my $wp = _wp $path->[0], $path->[1]
         or $app->throw_error (404, reason_phrase => 'Wiki not found');
@@ -85,14 +89,28 @@ sub main ($$) {
     })->then (sub {
       return $app->send_error (404, reason_phrase => 'Page not found')
           unless defined $_[0];
+
+      if ($path->[3] eq 'text') {
+        return $app->send_plain_text ($_[0]);
+      }
+
+      my $doc = _parse $name, $_[0];
       if ($path->[3] eq 'xml') {
-        my $doc = _parse $name, $_[0];
         $app->http->set_response_header ('Content-Type' => 'text/xml; charset=utf-8');
         $app->http->send_response_body_as_text ($doc->inner_html);
         $app->http->close_response_body;
-      } else { # text
-        $app->send_plain_text ($_[0]);
+        return;
       }
+
+      if ($path->[3] eq 'extracted.json') {
+        return MWX::Extractor->process ($doc)->then (sub {
+          $app->http->set_response_header ('Content-Type' => 'application/json; charset=utf-8');
+          $app->http->send_response_body_as_text (perl2json_chars $_[0]);
+          $app->http->close_response_body;
+        });
+      }
+
+      die;
     });
   }
 
@@ -102,6 +120,9 @@ sub main ($$) {
   } elsif (@$path == 1 and $path->[0] eq 'xml') {
     # /xml
     return $class->temma ($app->http, 'xml.html.tm', {});
+  } elsif (@$path == 1 and $path->[0] eq 'json') {
+    # /json
+    return $class->temma ($app->http, 'json.html.tm', {});
   }
 
   return $app->send_error (404);
