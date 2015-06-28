@@ -19,10 +19,6 @@
     while (items.length) {
       var item = items.shift ();
       var li = document.createElement ('li');
-      if (item.length >= 3) {
-        li.appendChild (document.createElement ('code')).textContent = item[2];
-        li.appendChild (document.createTextNode (': '));
-      }
       if (typeof item[0] === 'string') {
         li.innerHTML = '"<code class=string></code>"';
         li.firstElementChild.textContent = item[0];
@@ -54,6 +50,10 @@
           items.unshift ([item[0][n], ul, n]);
         }
         li.appendChild (ul);
+      }
+      if (item.length >= 3) {
+        li.insertBefore (document.createTextNode (': '), li.firstChild);
+        li.insertBefore (document.createElement ('code'), li.firstChild).textContent = item[2];
       }
       item[1].appendChild (li);
     }
