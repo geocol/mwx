@@ -1,7 +1,6 @@
 use strict;
 use warnings;
 use Path::Tiny;
-use lib glob path (__FILE__)->parent->parent->child ('t_deps/modules/*/lib');
 use Encode;
 use Getopt::Long;
 use AnyEvent;
@@ -45,7 +44,7 @@ GetOptions (
 my @page = map { decode 'utf-8', $_ } @ARGV;
 @page or die "Usage: $0 [OPTIONS] page-name...\n";
 
-my $root_path = path (__FILE__)->parent->parent;
+my $root_path = path (__FILE__)->parent->parent->absolute;
 
 my $mwx = Promised::Plackup->new;
 $mwx->plackup ($root_path->child ('plackup'));
