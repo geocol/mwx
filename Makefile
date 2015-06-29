@@ -36,9 +36,6 @@ PROVE = ./prove
 test: test-deps test-main
 
 test-deps: deps
-	#XXX
-	ls -l modules/twiggy-packed/script/
-	-modules/twiggy-packed/script/plackup
 
 test-main:
 	$(PROVE) t/*.t

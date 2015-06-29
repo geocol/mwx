@@ -34,7 +34,7 @@ sub get_json ($$$$$) {
   });
 } # get_json
 
-my $root_path = path (__FILE__)->parent->parent;
+my $root_path = path (__FILE__)->parent->parent->absolute;
 
 my $mwx = Promised::Plackup->new;
 $mwx->plackup ($root_path->child ('plackup'));
