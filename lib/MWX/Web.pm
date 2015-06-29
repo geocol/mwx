@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Path::Tiny;
 use Promise;
+use Promised::File;
 use JSON::PS;
 use Wanage::URL;
 use Wanage::HTTP;
@@ -12,6 +13,7 @@ use Text::MediaWiki::Parser;
 use AnyEvent::MediaWiki::Source;
 use Temma::Parser;
 use Temma::Processor;
+use MWX::Parser;
 use MWX::Extractor;
 
 sub _parse ($$) {
@@ -65,6 +67,7 @@ sub psgi_app ($) {
   };
 } # psgi_app
 
+my $RulesPath = path (__FILE__)->parent->parent->parent->child ('rules');
 my $Cache = {};
 
 sub main ($$) {
@@ -110,10 +113,34 @@ sub main ($$) {
       }
 
       if ($path->[3] eq 'extracted.json') {
-        return MWX::Extractor->process ($doc)->then (sub {
-          $app->http->set_response_header ('Content-Type' => 'application/json; charset=utf-8');
-          $app->http->send_response_body_as_text (perl2json_chars $_[0]);
-          $app->http->close_response_body;
+        return Promise->resolve->then (sub {
+          my $rules_name = $app->text_param ('rules_name');
+          if (defined $rules_name and length $rules_name) {
+            if ($rules_name =~ /\A[0-9a-z_-]+\z/) {
+              my $path = Promised::File->new_from_path ($RulesPath->child ("$rules_name.txt"));
+              return $path->is_file->then (sub {
+                if ($_[0]) {
+                  return $path->read_char_string->then (sub {
+                    my $parser = MWX::Parser->new;
+                    # XXX error
+                    return $parser->parse_char_string ($_[0]);
+                  });
+                } else {
+                  return $app->throw_error (400, reason_phrase => 'Bad |rules_name|');
+                }
+              });
+            } else {
+              return $app->throw_error (400, reason_phrase => 'Bad |rules_name|');
+            }
+          }
+          return undef;
+        })->then (sub {
+          my $rules = $_[0];
+          return MWX::Extractor->process ($doc, $rules)->then (sub {
+            $app->http->set_response_header ('Content-Type' => 'application/json; charset=utf-8');
+            $app->http->send_response_body_as_text (perl2json_chars $_[0]);
+            $app->http->close_response_body;
+          });
         });
       }
 

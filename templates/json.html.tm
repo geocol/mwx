@@ -7,8 +7,12 @@
   var xhr = new XMLHttpRequest;
   xhr.open ('GET', url, true);
   xhr.onreadystatechange = function () {
-    if (xhr.readyState === 4 && xhr.status === 200) {
-      showJSON (JSON.parse (xhr.responseText));
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        showJSON (JSON.parse (xhr.responseText));
+      } else {
+        document.body.appendChild (document.createTextNode (xhr.status + ' ' + xhr.responseText));
+      }
     }
   };
   xhr.send (null);

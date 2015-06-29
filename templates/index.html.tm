@@ -19,7 +19,8 @@
   if (form.format.value === 'xml') {
     url = '/xml?' + encodeURIComponent (url);
   } else if (form.format.value === 'extracted.json') {
-    url = '/json?' + encodeURIComponent (url);
+    url += '?rules_name=' + encodeURIComponent (form.rules_name.value);
+    url = '/json?' + encodeURIComponent (url)
   }
   window[form.format.value === 'extracted.json' ? 'dataView' : 'pageView'].location = url;
 ">
@@ -37,6 +38,7 @@
   <button type=submit onclick="elements.format.value = 'open'">Original</button>
   <button type=submit onclick="elements.format.value = 'text'">Text</button>
   <button type=submit onclick="elements.format.value = 'xml'">XML</button>
+  <input name=rules_name title="Name of rule set">
   <button type=submit onclick="elements.format.value = 'extracted.json'">Data</button>
 </form>
 

@@ -5,14 +5,8 @@ use warnings;
 use Promise;
 use Char::Normalize::FullwidthHalfwidth qw(get_fwhw_normalized);
 
-my $IncludeDefs = {};
-
-sub _tc ($) {
-  return $_[0]->text_content;
-} # _tc
-
-sub _ignore_links ($) {
-  my $nodes = $_[0];
+sub _ignore_links ($$) {
+  my ($rules, $nodes) = @_;
   my @l;
   my @t;
   if (@$nodes and not grep {
@@ -22,7 +16,7 @@ sub _ignore_links ($) {
       ($_->local_name eq 'include' and $_->get_attribute ('wref') eq '仮リンク') or
       ($_->local_name eq 'ref') or
       ($_->local_name eq 'comment') or
-      ($_->local_name eq 'include' and $IncludeDefs->{$_->get_attribute ('wref') // ''}->{ignorable})
+      ($_->local_name eq 'include' and $rules->{include}->{$_->get_attribute ('wref')}->{flags}->{ignorable})
     )
   } @$nodes) {
     for (@$nodes) {
@@ -75,76 +69,12 @@ sub _expand_l ($) {
   }
 } # _expand_l
 
-sub parse_include ($);
-sub parse_value ($$);
-
-$IncludeDefs->{$_}->{is_structure} = 1 for qw(
-      駅情報
-      ウィキ座標2段度分秒 ウィキ座標度分秒
-      駅番号c
-      駅番号s
-);
-
-$IncludeDefs->{$_}->{ignorable} = 1 for qw(要検証 audio);
-
-for (
-  ['駅情報', '所属路線', ['with-annotation']],
-  ['駅情報', '所属事業者', ['with-annotation']],
-  ['駅情報', '前の駅', ['next-station']],
-  ['駅情報', '次の駅', ['next-station']],
-  ['駅情報', '開業年月日', ['date']],
-  ['駅情報', '所在地', ['ignore-links']],
-  ['駅情報', '所属路線', ['with-annotation', '路線']],
-) {
-  $IncludeDefs->{$_->[0]}->{params}->{$_->[1]}->{parsing_rules} = $_->[2];
-}
-
-my $SectionDefs = {};
-$SectionDefs->{'駅周辺'}->{parsing_rule} = 'list';
-$SectionDefs->{'駅周辺'}->{item_parsing_rules} = [
-  'nested-list',
-  'with-annotation',
-  'ignore-links',
-];
-
-$SectionDefs->{$_}->{parsing_rule} = 'list',
-$SectionDefs->{$_}->{item_parsing_rules} = [
-  'ignore-links',
-],
-$SectionDefs->{$_}->{item_filters} = [
-  'ignore-comment',
-],
-$SectionDefs->{$_}->{item_string_filters} = [
-  'year-prefixed',
-] for qw(できごと 日本の自治体改編 フィクションのできごと);
-
-$SectionDefs->{$_}->{parsing_rule} = 'list',
-$SectionDefs->{$_}->{item_parsing_rules} = [
-  'nested-indent',
-  'holiday',
-  'ignore-links',
-],
-$SectionDefs->{$_}->{item_filters} = [
-  'ignore-comment',
-  'indent-as-desc',
-],
-$SectionDefs->{$_}->{item_string_filters} = [
-] for qw(記念日・年中行事);
-
-$SectionDefs->{$_}->{parsing_rule} = 'list',
-$SectionDefs->{$_}->{item_parsing_rules} = [
-  'year-prefixed-name',
-],
-$SectionDefs->{$_}->{item_filters} = [
-  'ignore-comment',
-],
-$SectionDefs->{$_}->{item_string_filters} = [
-] for qw(誕生日 忌日 誕生日(フィクション) );
+sub parse_include ($$);
+sub parse_value ($$$);
 
 my $RuleDefs = {};
-$RuleDefs->{'with-annotation'} = {
-  code => sub {
-    my $nodes = $_[1];
+$RuleDefs->{'with-annotation'} = sub {
+    my $nodes = $_[2];
     if (@$nodes == 2 and
         $nodes->[0]->node_type == 1 and
         (($nodes->[0]->local_name eq 'l' and not $nodes->[0]->has_attribute ('embed')) or
@@ -181,11 +111,9 @@ $RuleDefs->{'with-annotation'} = {
       }
     }
     return undef;
-  },
 }; # with-annotation
-$RuleDefs->{'next-station'} = {
-  code => sub {
-    my $nodes = $_[1];
+$RuleDefs->{'next-station'} = sub {
+    my $nodes = $_[2];
     if (@$nodes == 2 and
         $nodes->[0]->node_type == 1 and
         (($nodes->[0]->local_name eq 'l' and not $nodes->[0]->has_attribute ('embed')) or
@@ -210,11 +138,9 @@ $RuleDefs->{'next-station'} = {
       }
     }
     return undef;
-  },
 }; # next-station
-$RuleDefs->{'date'} = {
-  code => sub {
-    my $nodes = $_[1];
+$RuleDefs->{'date'} = sub {
+    my $nodes = $_[2];
     my $tc = _n join '', map { $_->text_content } @$nodes;
     if ($tc =~ /^([0-9]+)年([0-9]+)月([0-9]+)日$/) {
       return ['date', $1, $2, $3];
@@ -222,51 +148,43 @@ $RuleDefs->{'date'} = {
       return ['date', $1, $2, $3];
     }
     return undef;
-  },
 }; # date
-$RuleDefs->{'nested-list'} = {
-  code => sub {
-    my ($ctx_def, $nodes) = @_;
+$RuleDefs->{'nested-list'} = sub {
+    my ($rules, $ctx_def, $nodes) = @_;
     if (@$nodes and $nodes->[-1]->node_type == 1 and $nodes->[-1]->local_name eq 'ul') {
       my $list = pop @$nodes;
-      $list = ['list', map { parse_value $ctx_def, $_ } grep { $_->local_name eq 'li' } $list->children->to_list];
+      $list = ['list', map { parse_value $rules, $ctx_def, $_ } grep { $_->local_name eq 'li' } $list->children->to_list];
       if (@$nodes) {
-        return ['with-list', (parse_value $ctx_def, $nodes), $list];
+        return ['with-list', (parse_value $rules, $ctx_def, $nodes), $list];
       } else {
         return $list;
       }
     }
     return undef;
-  },
 }; # nested-list
-$RuleDefs->{'nested-indent'} = {
-  code => sub {
-    my ($ctx_def, $nodes) = @_;
+$RuleDefs->{'nested-indent'} = sub {
+    my ($rules, $ctx_def, $nodes) = @_;
     if (@$nodes and
         $nodes->[-1]->node_type == 1 and $nodes->[-1]->local_name eq 'dl' and
         $nodes->[-1]->children->length == 1) { # dd
       my $list = pop @$nodes;
-      $list = parse_value $ctx_def, $list->children->[0];
+      $list = parse_value $rules, $ctx_def, $list->children->[0];
       if (@$nodes) {
-        return ['with-indent', (parse_value $ctx_def, $nodes), $list];
+        return ['with-indent', (parse_value $rules, $ctx_def, $nodes), $list];
       } else {
         return $list;
       }
     }
     return undef;
-  },
 }; # nested-indent
-$RuleDefs->{'ignore-links'} = {
-  code => sub {
-    my ($ctx_def, $nodes) = @_;
-    my ($ts, $ls) = _ignore_links $nodes;
+$RuleDefs->{'ignore-links'} = sub {
+    my ($rules, $ctx_def, $nodes) = @_;
+    my ($ts, $ls) = _ignore_links $rules, $nodes;
     return undef if not defined $ts or not @$ls;
     return ['string', join '', @$ts];
-  },
 }; # ignore-links
-$RuleDefs->{'路線'} = {
-  code => sub {
-    my ($ctx_def, $nodes) = @_;
+$RuleDefs->{'路線'} = sub {
+    my ($rules, $ctx_def, $nodes) = @_;
     my @node;
     for (@$nodes) {
       if ($_->node_type == 1) {
@@ -284,12 +202,10 @@ $RuleDefs->{'路線'} = {
       }
     }
     return undef;
-  },
 }; # 路線
-$RuleDefs->{'year-prefixed-name'} = {
-  code => sub {
-    my ($ctx_def, $nodes) = @_;
-    my ($ts, $ls) = _ignore_links $nodes;
+$RuleDefs->{'year-prefixed-name'} = sub {
+    my ($rules, $ctx_def, $nodes) = @_;
+    my ($ts, $ls) = _ignore_links $rules, $nodes;
     return undef unless defined $ts;
 
     my $s = _n join '', @$ts;
@@ -318,11 +234,9 @@ $RuleDefs->{'year-prefixed-name'} = {
       $v->{wref} = $ls->[0]->get_attribute ('wref') // $ls->[0]->text_content;
     }
     return $v;
-  },
 }; # year-prefixed-name
-$RuleDefs->{'holiday'} = {
-  code => sub {
-    my ($ctx_def, $nodes) = @_;
+$RuleDefs->{'holiday'} = sub {
+    my ($rules, $ctx_def, $nodes) = @_;
     if (@$nodes > 2 and
         $nodes->[-1]->node_type == 3 and $nodes->[-1]->text_content =~ /^[)\）]$/ and
         $nodes->[-2]->node_type == 1 and $nodes->[-2]->local_name eq 'include' and $nodes->[-2]->get_attribute ('wref') =~ /^([A-Z]+)$/) {
@@ -330,7 +244,7 @@ $RuleDefs->{'holiday'} = {
       pop @$nodes;
       pop @$nodes;
 
-      my ($ts, $ls) = _ignore_links $nodes;
+      my ($ts, $ls) = _ignore_links $rules, $nodes;
       return undef unless defined $ts;
       $ts->[-1] =~ s/ ?[(\（]$// if @$ts;
       my $s = _n join '', @$ts;
@@ -341,25 +255,24 @@ $RuleDefs->{'holiday'} = {
       return $v;
     }
     return undef;
-  },
 }; # holiday
 
-sub apply_filters ($$);
+sub apply_filters ($$$);
 
 my $FilterDefs = {};
 $FilterDefs->{'ignore-comment'} = sub {
-  my ($def, $v) = @_;
+  my ($rules, $def, $v) = @_;
   if (ref $v eq 'ARRAY' and $v->[0] eq 'with-comment') {
-    $v = apply_filters $def, $v->[1]
+    $v = apply_filters $rules, $def, $v->[1]
   }
   return $v;
 }; # ignore-comment
 $FilterDefs->{'indent-as-desc'} = sub {
-  my ($def, $v) = @_;
+  my ($rules, $def, $v) = @_;
   if (ref $v eq 'ARRAY' and
       $v->[0] eq 'with-indent' and
       ref $v->[1] eq 'HASH') {
-    $v->[2] = apply_filters $def, $v->[2];
+    $v->[2] = apply_filters $rules, $def, $v->[2];
     if (ref $v->[2] eq 'ARRAY' and $v->[2]->[0] eq 'string') {
       $v->[1]->{desc} = $v->[2]->[1];
       $v = $v->[1];
@@ -370,7 +283,7 @@ $FilterDefs->{'indent-as-desc'} = sub {
 
 my $StringFilterDefs = {};
 $StringFilterDefs->{'year-prefixed'} = sub {
-  my $s = _n $_[1];
+  my $s = _n $_[2];
   $s =~ s/ ?\(:en:[^()]+\)$//; # link to en.wikipedia
   if ($s =~ s/^([0-9]+)年 ?- //) {
     return {year => $1, desc => $s};
@@ -380,8 +293,8 @@ $StringFilterDefs->{'year-prefixed'} = sub {
   return undef;
 }; # year-prefixed
 
-sub parse_value ($$) {
-  my ($ctx_def, $parent) = @_;
+sub parse_value ($$$) {
+  my ($rules, $ctx_def, $parent) = @_;
 
   my @value;
   if (ref $parent eq 'ARRAY') {
@@ -401,7 +314,7 @@ sub parse_value ($$) {
     } elsif (@item == 0) {
       return undef;
     } else {
-      return ['list', grep { defined } map { parse_value $ctx_def, $_ } @item];
+      return ['list', grep { defined } map { parse_value $rules, $ctx_def, $_ } @item];
     }
   }
 
@@ -424,16 +337,16 @@ sub parse_value ($$) {
     }
   }
   if (@comment) {
-    return ['with-comment', (parse_value $ctx_def, \@value), map { $_->text_content } @comment];
+    return ['with-comment', (parse_value $rules, $ctx_def, \@value), map { $_->text_content } @comment];
   }
 
   for my $rule_name (@{$ctx_def->{parsing_rules} or []}) {
     my $rule_def = $RuleDefs->{$rule_name};
-    unless ($rule_def->{code}) {
+    unless ($rule_def) {
       warn "Rule |$rule_name| is not defined";
       next;
     }
-    my $v = $rule_def->{code}->($ctx_def, \@value);
+    my $v = $rule_def->($rules, $ctx_def, \@value);
     if (defined $v) {
       return $v;
     }
@@ -446,10 +359,10 @@ sub parse_value ($$) {
           ($ln eq 'include' and $value[0]->get_attribute ('wref') eq '仮リンク')) {
         return _expand_l $value[0];
       } elsif ($ln eq 'include') {
-        my $x = parse_include $value[0];
+        my $x = parse_include $rules, $value[0];
         return ['='.$value[0]->get_attribute ('wref'), $x] if defined $x;
       } elsif ($ln eq 'small') {
-        return ['small', parse_value $ctx_def, $value[0]->child_nodes->to_a];
+        return ['small', parse_value $rules, $ctx_def, $value[0]->child_nodes->to_a];
       }
       return ['unparsed', $value[0]->outer_html];
     } elsif ($value[0]->node_type == 3) {
@@ -472,11 +385,11 @@ sub parse_value ($$) {
   }
 } # parse_value
 
-sub parse_include ($) {
-  my $include = $_[0];
+sub parse_include ($$) {
+  my ($rules, $include) = @_;
   my $wref = $include->get_attribute ('wref') // '';
-  my $inc_def = $IncludeDefs->{$wref};
-  return undef unless $inc_def->{is_structure};
+  my $inc_def = $rules->{include}->{$wref};
+  return undef unless $inc_def->{flags}->{is_structure};
 
   my $d = {};
   my $i = 0;
@@ -484,14 +397,14 @@ sub parse_include ($) {
     next unless $ip->local_name eq 'iparam';
     my $name = $ip->get_attribute ('name') // $i;
     $i++;
-    my $v = parse_value $inc_def->{params}->{$name}, $ip;
+    my $v = parse_value $rules, $inc_def->{params}->{$name}, $ip;
     $d->{$name} = $v if defined $v;
   }
   return $d;
 } # parse_include
 
-sub apply_filters ($$) {
-  my ($def, $v) = @_;
+sub apply_filters ($$$) {
+  my ($rules, $def, $v) = @_;
 
   for my $filter_name (@{$def->{filters} or []}) {
     my $filter = $FilterDefs->{$filter_name};
@@ -499,7 +412,7 @@ sub apply_filters ($$) {
       warn "Filter |$filter_name| not defined";
       next;
     }
-    $v = $filter->($def, $v);
+    $v = $filter->($rules, $def, $v);
     last unless defined $v;
   }
 
@@ -510,23 +423,23 @@ sub apply_filters ($$) {
       warn "String filter |$filter_name| not defined";
       next;
     }
-    my $w = $filter->($def, $v->[1]);
+    my $w = $filter->($rules, $def, $v->[1]);
     $v = $w if defined $w;
   }
 
   return $v;
 } # apply_filters
 
-sub process ($$) {
-  my $doc = $_[1];
+sub process ($$$) {
+  my ($class, $doc, $rules) = @_;
   my $data = {};
 
   for my $section ($doc->query_selector_all ('section')->to_list) {
     my $h1 = $section->first_element_child;
     next unless defined $h1 and $h1->local_name eq 'h1';
     my $title = _n $h1->text_content;
-    my $sec_def = $SectionDefs->{$title};
-    my $rule_name = $sec_def->{parsing_rule} or next;
+    my $sec_def = $rules->{section}->{$title};
+    my $rule_name = $sec_def->{props}->{parsing_rule} or next;
     if ($rule_name eq 'list') {
       my $d = {items => []};
       for my $ul ($section->children->to_list) {
@@ -534,11 +447,13 @@ sub process ($$) {
         for my $li ($ul->children->to_list) {
           next unless $li->local_name eq 'li';
 
-          my $v = parse_value {parsing_rules => $sec_def->{item_parsing_rules}}, $li;
+          my $v = parse_value $rules,
+              {parsing_rules => $sec_def->{lists}->{item_parsing_rules}}, $li;
           next unless defined $v;
 
-          $v = apply_filters {filters => $sec_def->{item_filters},
-                                  string_filters => $sec_def->{item_string_filters}}, $v;
+          $v = apply_filters $rules, 
+              {filters => $sec_def->{lists}->{item_filters},
+               string_filters => $sec_def->{lists}->{item_string_filters}}, $v;
           next unless defined $v;
           
           push @{$d->{items}}, $v;
@@ -551,7 +466,8 @@ sub process ($$) {
   }
 
   for my $include ($doc->query_selector_all ('include')->to_list) {
-    my $d = parse_include $include;
+    next unless $rules->{include}->{$include->get_attribute ('wref')}->{flags}->{top_level};
+    my $d = parse_include $rules, $include;
     push @{$data->{includes}->{$include->get_attribute ('wref')} ||= []}, $d
         if defined $d;
   }
