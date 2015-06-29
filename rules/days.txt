@@ -12,6 +12,7 @@
 
 parsing_rule=list
 item_parsing_rules+
+  nested-indent
   ignore-links
 item_filters+
   ignore-comment
@@ -22,12 +23,16 @@ item_string_filters+
 
 parsing_rule=list
 item_parsing_rules+
+  nested-list
   nested-indent
-  holiday
+  memorialday
+  ignore-links
+indent_parsing_rules+
   ignore-links
 item_filters+
   ignore-comment
   indent-as-desc
+  list-as-items
 
 @section 誕生日
 @@section 忌日
@@ -36,5 +41,6 @@ item_filters+
 parsing_rule=list
 item_parsing_rules+
   year-prefixed-name
+  ignore-links
 item_filters+
   ignore-comment

@@ -114,6 +114,12 @@ sub main ($$) {
 
       if ($path->[3] eq 'extracted.json') {
         return Promise->resolve->then (sub {
+          my $rules = $app->text_param ('rules');
+          if (defined $rules and length $rules) {
+            my $parser = MWX::Parser->new;
+            # XXX error
+            return $parser->parse_char_string ($rules);
+          }
           my $rules_name = $app->text_param ('rules_name');
           if (defined $rules_name and length $rules_name) {
             if ($rules_name =~ /\A[0-9a-z_-]+\z/) {

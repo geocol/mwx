@@ -168,7 +168,7 @@ $RuleDefs->{'nested-indent'} = sub {
         $nodes->[-1]->node_type == 1 and $nodes->[-1]->local_name eq 'dl' and
         $nodes->[-1]->children->length == 1) { # dd
       my $list = pop @$nodes;
-      $list = parse_value $rules, $ctx_def, $list->children->[0];
+      $list = parse_value $rules, {parsing_rules => $ctx_def->{indent_parsing_rules}}, $list->children->[0];
       if (@$nodes) {
         return ['with-indent', (parse_value $rules, $ctx_def, $nodes), $list];
       } else {
@@ -211,17 +211,17 @@ $RuleDefs->{'year-prefixed-name'} = sub {
     my $s = _n join '', @$ts;
     $s =~ s/ ?\([+*] [0-9]+年[?頃]?\)$//;
     my $v;
-    if ($s =~ s/^([0-9]+)年 ?- (.+?)、//) {
+    if ($s =~ s/^([0-9]+)年 ?- ?(.+?)、//) {
       $v = {year => $1, name => $2, desc => $s};
-    } elsif ($s =~ s/^([0-9]+)年 ?- (.+?)$//) {
+    } elsif ($s =~ s/^([0-9]+)年 ?- ?(.+?)$//) {
       $v = {year => $1, name => $2};
-    } elsif ($s =~ s{^([0-9]+)年\(([\w/]+年[0-9]+月[0-9]+日)\) ?- (.+?)、}{}) {
+    } elsif ($s =~ s{^([0-9]+)年\(([\w/]+年閏?[0-9]+月[0-9]+日)\) ?- ?(.+?)、}{}) {
       $v = {year => $1, local_date => $2, name => $3, desc => $s};
-    } elsif ($s =~ s{^([0-9]+)年\(([\w/]+年[0-9]+月[0-9]+日)\) ?- (.+?)$}{}) {
+    } elsif ($s =~ s{^([0-9]+)年\(([\w/]+年閏?[0-9]+月[0-9]+日)\) ?- ?(.+?)$}{}) {
       $v = {year => $1, local_date => $2, name => $3};
-    } elsif ($s =~ s/^生年不[明詳] ?- (.+?)、//) {
+    } elsif ($s =~ s/^生年不[明詳] ?- ?(.+?)、//) {
       $v = {name => $1, desc => $s};
-    } elsif ($s =~ s/^生年不[明詳] ?- (.+?)$//) {
+    } elsif ($s =~ s/^生年不[明詳] ?- ?(.+?)$//) {
       $v = {name => $1};
     } else {
       return undef;
@@ -235,7 +235,7 @@ $RuleDefs->{'year-prefixed-name'} = sub {
     }
     return $v;
 }; # year-prefixed-name
-$RuleDefs->{'holiday'} = sub {
+$RuleDefs->{'memorialday'} = sub {
     my ($rules, $ctx_def, $nodes) = @_;
     if (@$nodes > 2 and
         $nodes->[-1]->node_type == 3 and $nodes->[-1]->text_content =~ /^[)\）]$/ and
@@ -248,14 +248,22 @@ $RuleDefs->{'holiday'} = sub {
       return undef unless defined $ts;
       $ts->[-1] =~ s/ ?[(\（]$// if @$ts;
       my $s = _n join '', @$ts;
-      my $v = {region => $region, name => $s};
+      my $v = {region_wref => $region, name => $s};
+      if (@$ls and $ls->[0]->text_content eq $v->{name}) {
+        $v->{wref} = $ls->[0]->get_attribute ('wref') // $ls->[0]->text_content;
+      }
+      return $v;
+    } else {
+      my ($ts, $ls) = _ignore_links $rules, $nodes;
+      return undef unless defined $ts;
+      my $s = _n join '', @$ts;
+      my $v = {name => $s};
       if (@$ls and $ls->[0]->text_content eq $v->{name}) {
         $v->{wref} = $ls->[0]->get_attribute ('wref') // $ls->[0]->text_content;
       }
       return $v;
     }
-    return undef;
-}; # holiday
+}; # memorialday
 
 sub apply_filters ($$$);
 
@@ -277,18 +285,37 @@ $FilterDefs->{'indent-as-desc'} = sub {
       $v->[1]->{desc} = $v->[2]->[1];
       $v = $v->[1];
     }
+  } elsif (ref $v eq 'ARRAY' and
+           $v->[0] eq 'with-list') {
+    $v->[1] = apply_filters $rules, $def, $v->[1];
+    for (1..$#{$v->[2]}) {
+      $v->[2]->[$_] = apply_filters $rules, $def, $v->[2]->[$_];
+    }
   }
   return $v;
 }; # indent-as-desc
+$FilterDefs->{'list-as-items'} = sub {
+  my ($rules, $def, $v) = @_;
+  if (ref $v eq 'ARRAY' and
+      $v->[0] eq 'with-list' and
+      ref $v->[1] eq 'HASH') {
+    $v->[1]->{items} = $v->[2];
+    shift @{$v->[2]}; # 'list'
+    return $v->[1];
+  }
+  return $v;
+}; # list-as-items
 
 my $StringFilterDefs = {};
 $StringFilterDefs->{'year-prefixed'} = sub {
   my $s = _n $_[2];
   $s =~ s/ ?\(:en:[^()]+\)$//; # link to en.wikipedia
-  if ($s =~ s/^([0-9]+)年 ?- //) {
+  if ($s =~ s/^([0-9]+)年 ?- ?//) {
     return {year => $1, desc => $s};
-  } elsif ($s =~ s{^([0-9]+)年\(([\w/]+年[0-9]+月[0-9]+日)\) ?- }{}) {
+  } elsif ($s =~ s{^([0-9]+)年\(([\w/]+年閏?[0-9]+月[0-9]+日)\) ?- ?}{}) {
     return {year => $1, local_date => $2, desc => $s};
+  } elsif ($s =~ s/^(?:西暦|年号?)不明 ?- ?//) {
+    return {desc => $s};
   }
   return undef;
 }; # year-prefixed
@@ -448,7 +475,8 @@ sub process ($$$) {
           next unless $li->local_name eq 'li';
 
           my $v = parse_value $rules,
-              {parsing_rules => $sec_def->{lists}->{item_parsing_rules}}, $li;
+              {parsing_rules => $sec_def->{lists}->{item_parsing_rules},
+               indent_parsing_rules => $sec_def->{lists}->{indent_parsing_rules}}, $li;
           next unless defined $v;
 
           $v = apply_filters $rules, 
