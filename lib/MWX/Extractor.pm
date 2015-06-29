@@ -209,7 +209,7 @@ $RuleDefs->{'year-prefixed-name'} = sub {
     return undef unless defined $ts;
 
     my $s = _n join '', @$ts;
-    $s =~ s/ ?\([+*] [0-9]+年[?頃]?\)$//;
+    $s =~ s/ ?\([+*] ?[0-9]+年[?頃]?\)$//;
     my $v;
     if ($s =~ s/^([0-9]+)年 ?- ?(.+?)、//) {
       $v = {year => $1, name => $2, desc => $s};
@@ -239,8 +239,9 @@ $RuleDefs->{'memorialday'} = sub {
     my ($rules, $ctx_def, $nodes) = @_;
     if (@$nodes > 2 and
         $nodes->[-1]->node_type == 3 and $nodes->[-1]->text_content =~ /^[)\）]$/ and
-        $nodes->[-2]->node_type == 1 and $nodes->[-2]->local_name eq 'include' and $nodes->[-2]->get_attribute ('wref') =~ /^([A-Z]+)$/) {
+        $nodes->[-2]->node_type == 1 and $nodes->[-2]->local_name eq 'include' and $nodes->[-2]->get_attribute ('wref') =~ /^([A-Z]+|World)$/) {
       my $region = $1;
+      $nodes = [@$nodes];
       pop @$nodes;
       pop @$nodes;
 
@@ -314,7 +315,7 @@ $StringFilterDefs->{'year-prefixed'} = sub {
     return {year => $1, desc => $s};
   } elsif ($s =~ s{^([0-9]+)年\(([\w/]+年閏?[0-9]+月[0-9]+日)\) ?- ?}{}) {
     return {year => $1, local_date => $2, desc => $s};
-  } elsif ($s =~ s/^(?:西暦|年号?)不明 ?- ?//) {
+  } elsif ($s =~ s/^(?:西暦|年号?)不[明詳] ?- ?//) {
     return {desc => $s};
   }
   return undef;
