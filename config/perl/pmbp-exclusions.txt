@@ -17,4 +17,4 @@
 - "../../modules/promised-command" tests
 - "../../modules/twiggy-packed" tests
 - "../../t_deps/modules/test-x1" tests
-- "../../t_deps/modules/promised-plackup" tests
+- "../../modules/promised-plackup" tests

@@ -78,3 +78,6 @@
 	path = modules/json-ps
 	url = git://github.com/wakaba/perl-json-ps
 	track = master
+[submodule "modules/promised-plackup"]
+	path = modules/promised-plackup
+	url = git://github.com/wakaba/perl-promised-plackup
