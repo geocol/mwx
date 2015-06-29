@@ -1,0 +1,40 @@
+@include 要検証
+
+=ignorable
+
+@include audio
+
+=ignorable
+
+@section できごと
+@@section 日本の自治体改編
+@@section フィクションのできごと
+
+parsing_rule=list
+item_parsing_rules+
+  ignore-links
+item_filters+
+  ignore-comment
+item_string_filters+
+  year-prefixed
+
+@section 記念日・年中行事
+
+parsing_rule=list
+item_parsing_rules+
+  nested-indent
+  holiday
+  ignore-links
+item_filters+
+  ignore-comment
+  indent-as-desc
+
+@section 誕生日
+@@section 忌日
+@@section 誕生日(フィクション)
+
+parsing_rule=list
+item_parsing_rules+
+  year-prefixed-name
+item_filters+
+  ignore-comment

@@ -1,0 +1,47 @@
+@include 駅情報
+
+=is_structure
+=top_level
+
+@include ウィキ座標2段度分秒 ウィキ座標度分秒
+@@include 駅番号c
+@@include 駅番号s
+
+=is_structure
+
+@include 要検証
+@@include audio
+
+=ignorable
+
+@include 駅情報
+
+$param 所属路線
+parsing_rules+
+  with-annotation
+  路線
+
+$param 所属事業者
+parsing_rules+
+  with-annotation
+
+$param 前の駅
+$$param 次の駅
+parsing_rules+
+  next-station
+
+$param 開業年月日
+parsing_rules+
+  date
+
+$param 所在地
+parsing_rules+
+  ignore-links
+
+@section 駅周辺
+
+parsing_rule=list
+item_parsing_rules+
+  nested-list
+  with-annotation
+  ignore-links
