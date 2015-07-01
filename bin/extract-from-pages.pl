@@ -49,6 +49,7 @@ my $root_path = path (__FILE__)->parent->parent->absolute;
 
 my $mwx = Promised::Plackup->new;
 $mwx->plackup ($root_path->child ('plackup'));
+$mwx->set_option ('--host' => '127.0.0.1');
 $mwx->set_option ('--server' => 'Twiggy');
 $mwx->set_option ('--app' => $root_path->child ('bin/server.psgi'));
 
