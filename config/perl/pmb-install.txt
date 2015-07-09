@@ -1,5 +1,4 @@
 Net::SSLeay~1.70
-<<<<<<< HEAD
 Pod::Usage~1.67
 JSON::XS~3.01
 Test::NoWarnings~1.04
@@ -23,7 +22,6 @@ File::Spec~3.47
 LWP::MediaTypes~6.02
 Types::Serialiser~1.0
 IO::Handle~1.28
-=======
 ExtUtils::Constant~0.23
 Pod::Usage~1.67
 Pod::Text~3.18
@@ -52,7 +50,6 @@ Scalar::Util~1.42
 File::Spec~3.47
 IO::Handle~1.28
 LWP::MediaTypes~6.02
->>>>>>> origin/master
 Encode::Locale~1.05
 Unicode::Normalize~1.18
 Socket~2.020
