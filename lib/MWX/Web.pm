@@ -2,6 +2,7 @@ package MWX::Web;
 use strict;
 use warnings;
 use Path::Tiny;
+use Path::Class;
 use Promise;
 use Promised::File;
 use JSON::PS;
@@ -15,6 +16,21 @@ use Temma::Parser;
 use Temma::Processor;
 use MWX::Parser;
 use MWX::Extractor;
+
+my $KeyMapping = {};
+if (defined $ENV{MWX_KEY_MAPPING}) {
+  my $path = path ($ENV{MWX_KEY_MAPPING});
+  my $base_path = $path->parent;
+  my $json = json_bytes2perl $path->slurp;
+  if (defined $json and ref $json eq 'HASH') {
+    for (keys %$json) {
+      if (ref $json->{$_} eq 'HASH') {
+        $KeyMapping->{$_} = {cache_d => dir ($json->{$_}->{cache_dir_name})->absolute ($base_path),
+                             dump_f => file ($json->{$_}->{dump_file_name})->absolute ($base_path)};
+      }
+    }
+  }
+}
 
 sub _parse ($$) {
   my $doc = new Web::DOM::Document;
@@ -37,7 +53,12 @@ sub _name ($) {
 
 sub _wp ($$) {
   my ($k1, $k2) = @_;
-  if ($k1 eq 'd') {
+
+  if ($KeyMapping->{$k1}->{$k2}) {
+    return AnyEvent::MediaWiki::Source->new_from_dump_f_and_cache_d
+        ($KeyMapping->{$k1}->{$k2}->{dump_f},
+         $KeyMapping->{$k1}->{$k2}->{cache_d});
+  } elsif ($k1 eq 'd') {
     return AnyEvent::MediaWiki::Source->new_wiktionary_by_lang ($k2);
   } elsif ($k1 eq 'p') {
     return AnyEvent::MediaWiki::Source->new_wikipedia_by_lang ($k2);
