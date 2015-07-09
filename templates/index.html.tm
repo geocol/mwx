@@ -38,6 +38,7 @@
   <button type=submit onclick="elements.format.value = 'open'">Original</button>
   <button type=submit onclick="elements.format.value = 'text'">Text</button>
   <button type=submit onclick="elements.format.value = 'xml'">XML</button>
+  <button type=submit onclick="elements.format.value = 'categorymembers.txt'">Members</button>
   <input name=rules_name title="Name of rule set">
   <button type=submit onclick="elements.format.value = 'extracted.json'">Data</button>
 </form>
