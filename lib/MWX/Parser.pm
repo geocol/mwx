@@ -10,9 +10,9 @@ sub parse_char_string ($$) {
   my ($self, $s) = @_;
 
   my $defs = {};
-  my $current = {};
-  my $current_l1 = {};
-  my $current_list = [];
+  my $currents = [];
+  my $current_l1s = [];
+  my $current_lists = [];
 
   for my $line (split /\x0D?\x0A/, $s) {
     if ($line =~ /^\@(\@?)(\w+)\s+(\S.+?)\s*$/) {
@@ -20,31 +20,33 @@ sub parse_char_string ($$) {
       my $type = $2;
       my $name = $3;
       if ($cont) {
-        $current = $defs->{$type}->{$name} = $current_l1;
+        push @$currents, $defs->{$type}->{$name} ||= {};
       } else {
-        $current_l1 = $current = $defs->{$type}->{$name} = {};
+        $currents = $current_l1s = [$defs->{$type}->{$name} ||= {}];
       }
-      $current_list = [];
+      $current_lists = [];
     } elsif ($line =~ /^\$(\$?)(\w+)\s+(\S.+?)\s*$/) {
       my $cont = $1;
       my $type = $2;
       my $name = $3;
       if ($cont) {
-        $current_l1->{fields}->{$type}->{$name} = $current;
+        push @$currents, $_->{fields}->{$type}->{$name} ||= {}
+            for @$current_l1s;
       } else {
-        $current = $current_l1->{fields}->{$type}->{$name} = {};
+        $currents = [map { $_->{fields}->{$type}->{$name} ||= {} } @$current_l1s];
       }
-      $current_list = [];
+      $current_lists = [];
     } elsif ($line =~ /^=(\w+)\s*$/) {
-      $current->{flags}->{$1} = 1;
-      $current_list = [];
+      $_->{flags}->{$1} = 1 for @$currents;
+      $current_lists = [];
     } elsif ($line =~ /^(\w+)=(.*?)\s*$/) {
-      $current->{props}->{$1} = $2;
-      $current_list = [];
+      $_->{props}->{$1} = $2 for @$currents;
+      $current_lists = [];
     } elsif ($line =~ /^(\w+)\+\s*$/) {
-      $current_list = $current->{lists}->{$1} = [];
+      $current_lists = [];
+      push @$current_lists, $_->{lists}->{$1} = [] for @$currents;
     } elsif ($line =~ s/^  (?=\S)//) {
-      push @$current_list, $line;
+      push @$_, $line for @$current_lists;
     } elsif ($line =~ /\S/) {
       warn "Bad line: |$line|";
     }

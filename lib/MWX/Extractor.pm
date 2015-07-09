@@ -69,8 +69,9 @@ sub _expand_l ($) {
   }
 } # _expand_l
 
-sub parse_include ($$);
+sub parse_include ($$$);
 sub parse_value ($$$);
+sub apply_filters ($$$);
 
 my $RuleDefs = {};
 $RuleDefs->{'with-annotation'} = sub {
@@ -150,17 +151,21 @@ $RuleDefs->{'date'} = sub {
     return undef;
 }; # date
 $RuleDefs->{'nested-list'} = sub {
-    my ($rules, $ctx_def, $nodes) = @_;
-    if (@$nodes and $nodes->[-1]->node_type == 1 and $nodes->[-1]->local_name eq 'ul') {
-      my $list = pop @$nodes;
-      $list = ['list', map { parse_value $rules, $ctx_def, $_ } grep { $_->local_name eq 'li' } $list->children->to_list];
-      if (@$nodes) {
-        return ['with-list', (parse_value $rules, $ctx_def, $nodes), $list];
-      } else {
-        return $list;
-      }
+  my ($rules, $ctx_def, $nodes) = @_;
+  if (@$nodes and $nodes->[-1]->node_type == 1 and $nodes->[-1]->local_name eq 'ul') {
+    my $list = pop @$nodes;
+    $list = ['list', map {
+      parse_value $rules, {lists => {
+        parsing_rules => $ctx_def->{lists}->{item_parsing_rules} || $ctx_def->{lists}->{parsing_rules},
+      }}, $_;
+    } grep { $_->local_name eq 'li' } $list->children->to_list];
+    if (@$nodes) {
+      return ['with-list', (parse_value $rules, $ctx_def, $nodes), $list];
+    } else {
+      return $list;
     }
-    return undef;
+  }
+  return undef;
 }; # nested-list
 $RuleDefs->{'nested-indent'} = sub {
     my ($rules, $ctx_def, $nodes) = @_;
@@ -168,7 +173,7 @@ $RuleDefs->{'nested-indent'} = sub {
         $nodes->[-1]->node_type == 1 and $nodes->[-1]->local_name eq 'dl' and
         $nodes->[-1]->children->length == 1) { # dd
       my $list = pop @$nodes;
-      $list = parse_value $rules, {parsing_rules => $ctx_def->{indent_parsing_rules}}, $list->children->[0];
+      $list = parse_value $rules, {lists => {parsing_rules => $ctx_def->{indent_parsing_rules}}}, $list->children->[0];
       if (@$nodes) {
         return ['with-indent', (parse_value $rules, $ctx_def, $nodes), $list];
       } else {
@@ -177,12 +182,70 @@ $RuleDefs->{'nested-indent'} = sub {
     }
     return undef;
 }; # nested-indent
+$RuleDefs->{'nested-navbox-list'} = sub {
+  my ($rules, $ctx_def, $nodes) = @_;
+  my $w = ['list'];
+  for my $include (@$nodes) {
+    if ($include->node_type == 1) {
+      my $ln = $include->local_name;
+      if ($ln eq 'include') {
+        #
+      } elsif ($ln eq 'noinclude') {
+        #
+      } elsif ($ln eq 'comment') {
+        #
+      } else {
+        return undef;
+      }
+    } else {
+      next;
+    }
+    my $wref = $include->get_attribute ('wref') // '';
+    my $inc_def = $rules->{include}->{$wref};
+
+    my $v = parse_include $rules, $inc_def, $include;
+    next unless defined $v;
+
+    $v = apply_filters $rules, $inc_def, $v;
+    next unless defined $v;
+
+    push @$w, $v;
+  }
+  return $w;
+}; # nested-navbox-list
 $RuleDefs->{'ignore-links'} = sub {
     my ($rules, $ctx_def, $nodes) = @_;
     my ($ts, $ls) = _ignore_links $rules, $nodes;
     return undef if not defined $ts or not @$ls;
     return ['string', join '', @$ts];
 }; # ignore-links
+$RuleDefs->{'linked-text-with-optional-image-prefix'} = sub {
+  my ($rules, $ctx_def, $nodes) = @_;
+  $nodes = [@$nodes];
+  while (@$nodes and
+         $nodes->[0]->node_type == 1 and
+         $nodes->[0]->local_name eq 'l' and
+         $nodes->[0]->has_attribute ('embed')) {
+    shift @$nodes;
+    shift @$nodes while @$nodes and $nodes->[0]->node_type == 3 and not $nodes->[0]->text_content =~ /\S/;
+  }
+
+  my ($ts, $ls) = _ignore_links $rules, $nodes;
+  return undef if not defined $ts;
+  if (@$ls) {
+    return {wref => ($ls->[0]->get_attribute ('wref') // $ls->[0]->text_content),
+            value => join '', @$ts};
+  } else {
+    return {value => join '', @$ts};
+  }
+}; # linked-text-with-optional-image-prefix
+$RuleDefs->{'plain-link-list'} = sub {
+  my ($rules, $ctx_def, $nodes) = @_;
+  my ($ts, $ls) = _ignore_links $rules, $nodes;
+  return undef if not defined $ts;
+
+  return ['list', map { _expand_l $_ } @$ls];
+}; # plain-link-list
 $RuleDefs->{'路線'} = sub {
     my ($rules, $ctx_def, $nodes) = @_;
     my @node;
@@ -266,8 +329,6 @@ $RuleDefs->{'memorialday'} = sub {
     }
 }; # memorialday
 
-sub apply_filters ($$$);
-
 my $FilterDefs = {};
 $FilterDefs->{'ignore-comment'} = sub {
   my ($rules, $def, $v) = @_;
@@ -306,6 +367,50 @@ $FilterDefs->{'list-as-items'} = sub {
   }
   return $v;
 }; # list-as-items
+$FilterDefs->{'navbox-lists'} = sub {
+  my ($rules, $def, $v) = @_;
+  my $w = {lists => []};
+  if (defined $v->{title} and ref $v->{title} eq 'HASH') {
+    $w->{title} = $v->{title}->{value};
+    $w->{wref} = $v->{title}->{wref} if defined $v->{title}->{wref};
+  }
+  for my $i (1..19) {
+    my $x = {};
+    my $title = $v->{"group$i"};
+    my $list = $v->{"list$i"};
+    next if not defined $title and not defined $list;
+    if (defined $title) {
+      if (ref $title eq 'HASH') {
+        $x->{title} = $title->{value};
+        $x->{wref} = $title->{wref} if defined $title->{wref};
+      } elsif (ref $title eq 'ARRAY' and $title->[0] eq 'string') {
+        $x->{title} = $title->[1];
+      } else {
+        $w->{_errors}->{"group$i"} = $title;
+      }
+    }
+    if (defined $list and ref $list eq 'ARRAY' and $list->[0] eq 'list') {
+      shift @$list;
+      my $y = [];
+      for my $item (@$list) {
+        if (ref $item eq 'HASH') {
+          $item->{title} = delete $item->{value}
+              if defined $item->{value} and not defined $item->{title};
+          push @$y, $item;
+        } elsif (ref $item eq 'ARRAY' and $item->[0] eq 'l') {
+          push @$y, {value => $item->[1], wref => $item->[2]};
+        } else {
+          push @{$w->{_errors}->{"list$i"} ||= []}, $item;
+        }
+      }
+      $x->{items} = $y;
+    } else {
+      $w->{_errors}->{"list$i"} = $list;
+    }
+    push @{$w->{lists}}, $x;
+  }
+  return $w;
+}; # navbox-lists
 
 my $StringFilterDefs = {};
 $StringFilterDefs->{'year-prefixed'} = sub {
@@ -368,7 +473,7 @@ sub parse_value ($$$) {
     return ['with-comment', (parse_value $rules, $ctx_def, \@value), map { $_->text_content } @comment];
   }
 
-  for my $rule_name (@{$ctx_def->{parsing_rules} or []}) {
+  for my $rule_name (@{$ctx_def->{lists}->{parsing_rules} or []}) {
     my $rule_def = $RuleDefs->{$rule_name};
     unless ($rule_def) {
       warn "Rule |$rule_name| is not defined";
@@ -387,8 +492,10 @@ sub parse_value ($$$) {
           ($ln eq 'include' and $value[0]->get_attribute ('wref') eq '仮リンク')) {
         return _expand_l $value[0];
       } elsif ($ln eq 'include') {
-        my $x = parse_include $rules, $value[0];
-        return ['='.$value[0]->get_attribute ('wref'), $x] if defined $x;
+        my $wref = $value[0]->get_attribute ('wref');
+        my $inc_def = $rules->{include}->{$wref};
+        my $x = parse_include $rules, $inc_def, $value[0];
+        return ['='.$wref, $x] if defined $x;
       } elsif ($ln eq 'small') {
         return ['small', parse_value $rules, $ctx_def, $value[0]->child_nodes->to_a];
       }
@@ -413,10 +520,8 @@ sub parse_value ($$$) {
   }
 } # parse_value
 
-sub parse_include ($$) {
-  my ($rules, $include) = @_;
-  my $wref = $include->get_attribute ('wref') // '';
-  my $inc_def = $rules->{include}->{$wref};
+sub parse_include ($$$) {
+  my ($rules, $inc_def, $include) = @_;
   return undef unless $inc_def->{flags}->{is_structure};
 
   my $d = {};
@@ -425,7 +530,7 @@ sub parse_include ($$) {
     next unless $ip->local_name eq 'iparam';
     my $name = $ip->get_attribute ('name') // $i;
     $i++;
-    my $v = parse_value $rules, $inc_def->{params}->{$name}, $ip;
+    my $v = parse_value $rules, $inc_def->{fields}->{param}->{$name}, $ip;
     $d->{$name} = $v if defined $v;
   }
   return $d;
@@ -434,7 +539,7 @@ sub parse_include ($$) {
 sub apply_filters ($$$) {
   my ($rules, $def, $v) = @_;
 
-  for my $filter_name (@{$def->{filters} or []}) {
+  for my $filter_name (@{$def->{lists}->{filters} or []}) {
     my $filter = $FilterDefs->{$filter_name};
     unless (defined $filter) {
       warn "Filter |$filter_name| not defined";
@@ -444,7 +549,7 @@ sub apply_filters ($$$) {
     last unless defined $v;
   }
 
-  for my $filter_name (@{$def->{string_filters} or []}) {
+  for my $filter_name (@{$def->{lists}->{string_filters} or []}) {
     last unless defined $v and ref $v eq 'ARRAY' and $v->[0] eq 'string';
     my $filter = $StringFilterDefs->{$filter_name};
     unless (defined $filter) {
@@ -476,13 +581,13 @@ sub process ($$$) {
           next unless $li->local_name eq 'li';
 
           my $v = parse_value $rules,
-              {parsing_rules => $sec_def->{lists}->{item_parsing_rules},
-               indent_parsing_rules => $sec_def->{lists}->{indent_parsing_rules}}, $li;
+              {lists => {parsing_rules => $sec_def->{lists}->{item_parsing_rules},
+                         indent_parsing_rules => $sec_def->{lists}->{indent_parsing_rules}}}, $li;
           next unless defined $v;
 
           $v = apply_filters $rules, 
-              {filters => $sec_def->{lists}->{item_filters},
-               string_filters => $sec_def->{lists}->{item_string_filters}}, $v;
+              {lists => {filters => $sec_def->{lists}->{item_filters},
+                         string_filters => $sec_def->{lists}->{item_string_filters}}}, $v;
           next unless defined $v;
           
           push @{$d->{items}}, $v;
@@ -494,12 +599,24 @@ sub process ($$$) {
     }
   }
 
-  for my $include ($doc->query_selector_all ('include')->to_list) {
-    next unless $rules->{include}->{$include->get_attribute ('wref')}->{flags}->{top_level};
-    my $d = parse_include $rules, $include;
-    push @{$data->{includes}->{$include->get_attribute ('wref')} ||= []}, $d
-        if defined $d;
-  }
+  I: for my $include ($doc->query_selector_all ('include')->to_list) {
+    my $wref = $include->get_attribute ('wref') // '';
+    my $inc_def = $rules->{include}->{$wref};
+    next unless $inc_def->{flags}->{top_level};
+    for ($include->children->to_list) {
+      if ($_->local_name eq 'iparam' and not $_->has_attribute ('name')) {
+        next I if $_->text_content =~ /^\s*child\s*$/;
+      }
+    }
+
+    my $v = parse_include $rules, $inc_def, $include;
+    next unless defined $v;
+
+    $v = apply_filters $rules, $inc_def, $v;
+    next unless defined $v;
+
+    push @{$data->{includes}->{$wref} ||= []}, $v;
+  } # $include
 
   return Promise->resolve ($data);
 } # process

@@ -2,6 +2,7 @@ package MWX::Web;
 use strict;
 use warnings;
 use Path::Tiny;
+use Path::Class;
 use Promise;
 use Promised::File;
 use JSON::PS;
@@ -15,6 +16,21 @@ use Temma::Parser;
 use Temma::Processor;
 use MWX::Parser;
 use MWX::Extractor;
+
+my $KeyMapping = {};
+if (defined $ENV{MWX_KEY_MAPPING}) {
+  my $path = path ($ENV{MWX_KEY_MAPPING});
+  my $base_path = $path->parent;
+  my $json = json_bytes2perl $path->slurp;
+  if (defined $json and ref $json eq 'HASH') {
+    for (keys %$json) {
+      if (ref $json->{$_} eq 'HASH') {
+        $KeyMapping->{$_} = {cache_d => dir ($json->{$_}->{cache_dir_name})->absolute ($base_path),
+                             dump_f => file ($json->{$_}->{dump_file_name})->absolute ($base_path)};
+      }
+    }
+  }
+}
 
 sub _parse ($$) {
   my $doc = new Web::DOM::Document;
@@ -37,7 +53,12 @@ sub _name ($) {
 
 sub _wp ($$) {
   my ($k1, $k2) = @_;
-  if ($k1 eq 'd') {
+
+  if ($KeyMapping->{$k1}->{$k2}) {
+    return AnyEvent::MediaWiki::Source->new_from_dump_f_and_cache_d
+        ($KeyMapping->{$k1}->{$k2}->{dump_f},
+         $KeyMapping->{$k1}->{$k2}->{cache_d});
+  } elsif ($k1 eq 'd') {
     return AnyEvent::MediaWiki::Source->new_wiktionary_by_lang ($k2);
   } elsif ($k1 eq 'p') {
     return AnyEvent::MediaWiki::Source->new_wikipedia_by_lang ($k2);
@@ -68,7 +89,8 @@ sub psgi_app ($) {
 } # psgi_app
 
 my $RulesPath = path (__FILE__)->parent->parent->parent->child ('rules');
-my $Cache = {};
+my $PageCache = {};
+my $MembersCache = {};
 
 sub main ($$) {
   my ($class, $app) = @_;
@@ -89,11 +111,11 @@ sub main ($$) {
     }
 
     return Promise->resolve (do {
-      if (exists $Cache->{$path->[0], $path->[1], $path->[2]}) {
-        $Cache->{$path->[0], $path->[1], $path->[2]}; # or undef
+      if (exists $PageCache->{$path->[0], $path->[1], $name}) {
+        $PageCache->{$path->[0], $path->[1], $name}; # or undef
       } else {
         Promise->from_cv ($wp->get_source_text_by_name_as_cv ($name))->then (sub {
-          return $Cache->{$path->[0], $path->[1], $path->[2]} = $_[0]; # or undef
+          return $PageCache->{$path->[0], $path->[1], $name} = $_[0]; # or undef
         });
       }
     })->then (sub {
@@ -151,6 +173,31 @@ sub main ($$) {
       }
 
       die;
+    });
+
+  # /{k1}/{k2}/{name}/categorymembers.txt
+  } elsif (@$path == 4 and $path->[3] eq 'categorymembers.txt') {
+    my $name = _name $path->[2];
+    my $wp = _wp $path->[0], $path->[1]
+        or $app->throw_error (404, reason_phrase => 'Wiki not found');
+    
+    return Promise->resolve (do {
+      if (exists $MembersCache->{$path->[0], $path->[1], $name}) {
+        $MembersCache->{$path->[0], $path->[1], $name}; # or undef
+      } else {
+        Promise->from_cv ($wp->get_category_members_by_http_as_cv ($name))->then (sub {
+          return $MembersCache->{$path->[0], $path->[1], $name} = $_[0]; # or undef
+        });
+      }
+    })->then (sub {
+      return $app->send_error (404, reason_phrase => 'Page not found')
+          unless defined $_[0];
+
+      if ($path->[3] eq 'text') {
+        return $app->send_plain_text ($_[0]);
+      }
+
+      return $app->send_plain_text (join "\x0A", map { $_->{title} } @{$_[0]});
     });
   }
 
