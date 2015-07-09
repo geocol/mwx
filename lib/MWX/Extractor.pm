@@ -396,9 +396,9 @@ $FilterDefs->{'navbox-lists'} = sub {
         if (ref $item eq 'HASH') {
           $item->{title} = delete $item->{value}
               if defined $item->{value} and not defined $item->{title};
-          push $y, $item;
+          push @$y, $item;
         } elsif (ref $item eq 'ARRAY' and $item->[0] eq 'l') {
-          push $y, {value => $item->[1], wref => $item->[2]};
+          push @$y, {value => $item->[1], wref => $item->[2]};
         } else {
           push @{$w->{_errors}->{"list$i"} ||= []}, $item;
         }
