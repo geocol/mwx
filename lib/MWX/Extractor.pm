@@ -168,19 +168,19 @@ $RuleDefs->{'nested-list'} = sub {
   return undef;
 }; # nested-list
 $RuleDefs->{'nested-indent'} = sub {
-    my ($rules, $ctx_def, $nodes) = @_;
-    if (@$nodes and
-        $nodes->[-1]->node_type == 1 and $nodes->[-1]->local_name eq 'dl' and
-        $nodes->[-1]->children->length == 1) { # dd
-      my $list = pop @$nodes;
-      $list = parse_value $rules, {lists => {parsing_rules => $ctx_def->{indent_parsing_rules}}}, $list->children->[0];
-      if (@$nodes) {
-        return ['with-indent', (parse_value $rules, $ctx_def, $nodes), $list];
-      } else {
-        return $list;
-      }
+  my ($rules, $ctx_def, $nodes) = @_;
+  if (@$nodes and
+      $nodes->[-1]->node_type == 1 and $nodes->[-1]->local_name eq 'dl' and
+      $nodes->[-1]->children->length == 1) { # dd
+    my $list = pop @$nodes;
+    $list = parse_value $rules, {lists => {parsing_rules => $ctx_def->{lists}->{indent_parsing_rules}}}, $list->children->[0];
+    if (@$nodes) {
+      return ['with-indent', (parse_value $rules, $ctx_def, $nodes), $list];
+    } else {
+      return $list;
     }
-    return undef;
+  }
+  return undef;
 }; # nested-indent
 $RuleDefs->{'nested-navbox-list'} = sub {
   my ($rules, $ctx_def, $nodes) = @_;
