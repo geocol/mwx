@@ -19,7 +19,7 @@ Canary::Stability~2006
 AnyEvent::HTTP~2.22
 Compress::Raw::Zlib~2.068
 Compress::Raw::Bzip2~2.068
-HTTP::Response~6.08
+HTTP::Response~6.09
 File::Temp~0.2304
 Path::Class~0.35
 common::sense~3.74
