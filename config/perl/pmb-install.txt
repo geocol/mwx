@@ -33,7 +33,7 @@ LWP::MediaTypes~6.02
 Encode::Locale~1.05
 Unicode::Normalize~1.19
 Socket~2.020
-Path::Tiny~0.070
+Path::Tiny~0.072
 URI~1.68
 Test::Tester~0.114
 Time::HiRes~1.9726
