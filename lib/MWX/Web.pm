@@ -59,17 +59,23 @@ sub _name ($) {
 
 sub _wp ($$) {
   my ($k1, $k2) = @_;
-
-  if ($KeyMapping->{$k1}->{$k2}) {
-    return AnyEvent::MediaWiki::Source->new_from_dump_f_and_cache_d
-        ($KeyMapping->{$k1}->{$k2}->{dump_f},
-         $KeyMapping->{$k1}->{$k2}->{cache_d});
-  } elsif ($k1 eq 'd') {
-    return AnyEvent::MediaWiki::Source->new_wiktionary_by_lang ($k2);
+  my $mw;
+  if ($k1 eq 'd') {
+    $mw = AnyEvent::MediaWiki::Source->new_wiktionary_by_lang ($k2);
   } elsif ($k1 eq 'p') {
-    return AnyEvent::MediaWiki::Source->new_wikipedia_by_lang ($k2);
+    $mw = AnyEvent::MediaWiki::Source->new_wikipedia_by_lang ($k2);
   } else {
     return undef;
+  }
+
+  if ($KeyMapping->{$k1}->{$k2}) {
+    my $mw2 = AnyEvent::MediaWiki::Source->new_from_dump_f_and_cache_d
+        ($KeyMapping->{$k1}->{$k2}->{dump_f},
+         $KeyMapping->{$k1}->{$k2}->{cache_d});
+    $mw2->top_url ($mw->top_url);
+    return $mw2;
+  } else {
+    return $mw;
   }
 } # _wp
 
