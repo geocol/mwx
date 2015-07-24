@@ -23,10 +23,16 @@ if (defined $ENV{MWX_KEY_MAPPING}) {
   my $base_path = $path->parent;
   my $json = json_bytes2perl $path->slurp;
   if (defined $json and ref $json eq 'HASH') {
-    for (keys %$json) {
-      if (ref $json->{$_} eq 'HASH') {
-        $KeyMapping->{$_} = {cache_d => dir ($json->{$_}->{cache_dir_name})->absolute ($base_path),
-                             dump_f => file ($json->{$_}->{dump_file_name})->absolute ($base_path)};
+    for my $k1 (keys %$json) {
+      if (ref $json->{$k1} eq 'HASH') {
+        for my $k2 (keys %{$json->{$k1}}) {
+          if (ref $json->{$k1}->{$k2} eq 'HASH') {
+            $KeyMapping->{$k1}->{$k2} = {
+              cache_d => dir ($json->{$k1}->{$k2}->{cache_dir_name})->absolute ($base_path),
+              dump_f => file ($json->{$k1}->{$k2}->{dump_file_name})->absolute ($base_path),
+            };
+          }
+        }
       }
     }
   }
