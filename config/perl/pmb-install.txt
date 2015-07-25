@@ -34,7 +34,7 @@ Encode::Locale~1.05
 Unicode::Normalize~1.19
 Socket~2.020
 Path::Tiny~0.072
-URI~1.68
+URI~1.69
 Test::Tester~0.114
 Time::HiRes~1.9726
 Exporter~5.72
