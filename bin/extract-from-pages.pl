@@ -24,7 +24,7 @@ sub get_json ($$$$$) {
         params => {
           rules => $rules
         },
-        timeout => 600,
+        timeout => 1000,
         anyevent => 1,
         cb => sub {
           my $res = $_[1];
