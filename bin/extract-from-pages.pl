@@ -30,6 +30,8 @@ sub get_json ($$$$$) {
           my $res = $_[1];
           if ($res->code == 200) {
             $ok->(json_bytes2perl $res->content);
+          } elsif ($res->code == 404) {
+            $ok->({});
           } else {
             $ng->($res->code);
           }
