@@ -4,7 +4,7 @@ Pod::Usage~1.67
 Pod::Text~3.18
 JSON::XS~3.01
 Test::NoWarnings~1.04
-Encode~2.75
+Encode~2.76
 IO::HTML~1.001
 Test::Builder~1.001014
 AnyEvent::Util
