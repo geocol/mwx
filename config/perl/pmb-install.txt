@@ -1,6 +1,6 @@
 Net::SSLeay~1.72
 ExtUtils::Constant~0.23
-Pod::Usage~1.67
+Pod::Usage~1.68
 Pod::Text~4.04
 JSON::XS~3.01
 Test::NoWarnings~1.04
