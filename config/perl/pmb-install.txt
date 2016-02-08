@@ -1,10 +1,10 @@
 Net::SSLeay~1.72
 ExtUtils::Constant~0.23
 Pod::Usage~1.68
-Pod::Text~4.05
+Pod::Text~4.06
 JSON::XS~3.01
 Test::NoWarnings~1.04
-Encode~2.80
+Encode~2.82
 IO::HTML~1.001
 Test::Builder~1.001014
 AnyEvent::Util
@@ -12,7 +12,7 @@ File::Path~2.12
 Time::Local~1.2300
 Getopt::Long~2.48
 parent~0.234
-AnyEvent~7.11
+AnyEvent~7.12
 Term::ANSIColor~4.04
 Exporter::Lite~0.08
 Canary::Stability~2006
@@ -25,7 +25,7 @@ Path::Class~0.35
 common::sense~3.74
 IO::Compress::Bzip2~2.069
 Unicode::Stringprep~1.105
-Scalar::Util~1.42
+Scalar::Util~1.43
 File::Spec~3.62
 IO::Handle~1.28
 Types::Serialiser~1.0
