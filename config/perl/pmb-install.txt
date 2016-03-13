@@ -15,7 +15,7 @@ parent~0.234
 AnyEvent~7.12
 Term::ANSIColor~4.04
 Exporter::Lite~0.08
-Canary::Stability~2006
+Canary::Stability~2011
 AnyEvent::HTTP~2.22
 Compress::Raw::Zlib~2.069
 Compress::Raw::Bzip2~2.069
