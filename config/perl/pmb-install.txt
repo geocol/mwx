@@ -1,4 +1,4 @@
-Net::SSLeay~1.73
+Net::SSLeay~1.74
 ExtUtils::Constant~0.23
 Pod::Usage~1.68
 Pod::Text~4.07
@@ -6,7 +6,7 @@ JSON::XS~3.02
 Test::NoWarnings~1.04
 Encode~2.84
 IO::HTML~1.001
-Test::Builder~1.001014
+Test::Builder~1.302019
 AnyEvent::Util
 File::Path~2.12
 Time::Local~1.2300
@@ -32,10 +32,10 @@ LWP::MediaTypes~6.02
 Encode::Locale~1.05
 Unicode::Normalize~1.25
 Socket~2.021
-Path::Tiny~0.086
+Path::Tiny~0.090
 URI~1.71
-Test::Tester~0.114
-Time::HiRes~1.9732
+Test::Tester~1.302019
+Time::HiRes~1.9733
 Exporter~5.72
 Carp~1.38
 HTTP::Date~6.02
