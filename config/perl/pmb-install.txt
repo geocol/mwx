@@ -6,7 +6,7 @@ JSON::XS~3.02
 Test::NoWarnings~1.04
 Encode~2.84
 IO::HTML~1.001
-Test::Builder~1.302019
+Test::Builder~1.302022
 AnyEvent::Util
 File::Path~2.12
 Time::Local~1.2300
@@ -34,7 +34,7 @@ Unicode::Normalize~1.25
 Socket~2.021
 Path::Tiny~0.094
 URI~1.71
-Test::Tester~1.302019
+Test::Tester~1.302022
 Time::HiRes~1.9733
 Exporter~5.72
 Carp~1.38
