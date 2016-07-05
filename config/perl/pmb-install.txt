@@ -6,7 +6,7 @@ JSON::XS~3.02
 Test::NoWarnings~1.04
 Encode~2.84
 IO::HTML~1.001
-Test::Builder~1.302035
+Test::Builder~1.302037
 AnyEvent::Util
 File::Path~2.12
 Time::Local~1.2300
@@ -32,9 +32,9 @@ LWP::MediaTypes~6.02
 Encode::Locale~1.05
 Unicode::Normalize~1.25
 Socket~2.021
-Path::Tiny~0.094
+Path::Tiny~0.096
 URI~1.71
-Test::Tester~1.302035
+Test::Tester~1.302037
 Time::HiRes~1.9739
 Exporter~5.72
 Carp~1.38
