@@ -80,8 +80,6 @@ Promise->all ([
     print perl2json_bytes_for_record $data;
   });
 })->then (sub {
-  return $mwx->stop;
-})->then (sub {
   $cv->send;
 }, sub {
   $cv->croak ($_[0]);
