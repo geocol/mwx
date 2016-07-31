@@ -1,3 +1,4 @@
+#!/bin/bash
 echo "1..3"
 basedir=$(cd `dirname $0`/.. && pwd)
 
