@@ -16,6 +16,8 @@ use Temma::Parser;
 use Temma::Processor;
 use MWX::Parser;
 use MWX::Extractor;
+use Web::UserAgent::Functions qw(http_get);
+use Web::Encoding qw(decode_web_utf8);
 
 my $KeyMapping = {};
 if (defined $ENV{MWX_KEY_MAPPING}) {
@@ -37,6 +39,8 @@ if (defined $ENV{MWX_KEY_MAPPING}) {
     }
   }
 }
+
+my $UpstreamURLPrefix = $ENV{MWX_UPSTREAM_URL_PREFIX};
 
 sub _parse ($$) {
   my $doc = new Web::DOM::Document;
@@ -78,6 +82,24 @@ sub _wp ($$) {
     return $mw;
   }
 } # _wp
+
+sub _get_upstream_as_cv ($$$$) {
+  my ($k1, $k2, $name, $type) = @_;
+  my $cv = AE::cv;
+  http_get
+      url => (sprintf q<%s/%s/%s/%s/%s>, $UpstreamURLPrefix, percent_encode_c $k1, percent_encode_c $k2, percent_encode_c $name, $type),
+      anyevent => 1,
+      cb => sub {
+        if ($_[1]->code == 200) {
+          $cv->send (decode_web_utf8 $_[1]->content);
+        } elsif ($_[1]->code < 500) {
+          $cv->send (undef);
+        } else {
+          $cv->croak ($_[1]->as_string);
+        }
+      };
+  return $cv;
+} # _get_upstream_as_cv
 
 sub psgi_app ($) {
   return sub {
@@ -126,7 +148,7 @@ sub main ($$) {
       if (exists $PageCache->{$path->[0], $path->[1], $name}) {
         $PageCache->{$path->[0], $path->[1], $name}; # or undef
       } else {
-        Promise->from_cv ($wp->get_source_text_by_name_as_cv ($name))->then (sub {
+        Promise->from_cv ($UpstreamURLPrefix ? _get_upstream_as_cv ($path->[0], $path->[1], $name, 'text') : $wp->get_source_text_by_name_as_cv ($name))->then (sub {
           return $PageCache->{$path->[0], $path->[1], $name} = $_[0]; # or undef
         });
       }
@@ -197,19 +219,20 @@ sub main ($$) {
       if (exists $MembersCache->{$path->[0], $path->[1], $name}) {
         $MembersCache->{$path->[0], $path->[1], $name}; # or undef
       } else {
-        Promise->from_cv ($wp->get_category_members_by_http_as_cv ($name))->then (sub {
-          return $MembersCache->{$path->[0], $path->[1], $name} = $_[0]; # or undef
-        });
+        if ($UpstreamURLPrefix) {
+          Promise->from_cv (_get_upstream_as_cv ($path->[0], $path->[1], $name, $path->[3]))->then (sub {
+            return $MembersCache->{$path->[0], $path->[1], $name} = $_[0]; # or undef
+          });
+        } else {
+          Promise->from_cv ($UpstreamURLPrefix ? _get_upstream_as_cv ($path->[0], $path->[1], $name, $path->[3]) : $wp->get_category_members_by_http_as_cv ($name))->then (sub {
+            return $MembersCache->{$path->[0], $path->[1], $name} = defined $_[0] ? (join "\x0A", map { $_->{title} } @{$_[0]}) : $_[0];
+          });
+        }
       }
     })->then (sub {
       return $app->send_error (404, reason_phrase => 'Page not found')
           unless defined $_[0];
-
-      if ($path->[3] eq 'text') {
-        return $app->send_plain_text ($_[0]);
-      }
-
-      return $app->send_plain_text (join "\x0A", map { $_->{title} } @{$_[0]});
+      return $app->send_plain_text ($_[0]);
     });
   }
 
