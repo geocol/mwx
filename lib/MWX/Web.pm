@@ -88,6 +88,7 @@ sub _get_upstream_as_cv ($$$$) {
   my $cv = AE::cv;
   http_get
       url => (sprintf q<%s/%s/%s/%s/%s>, $UpstreamURLPrefix, percent_encode_c $k1, percent_encode_c $k2, percent_encode_c $name, $type),
+      timeout => 60*10,
       anyevent => 1,
       cb => sub {
         if ($_[1]->code == 200) {
