@@ -25,9 +25,9 @@ Pod::Text~4.07
 Pod::Usage~1.69
 Proc::Wait3~0.05
 Scalar::Util~1.45
-Socket~2.021
+Socket~2.022
 Term::ANSIColor~4.05
-Test::More~1.302049
+Test::Builder~1.302049
 Test::NoWarnings~1.04
 Test::Tester~1.302049
 Time::HiRes~1.9739
