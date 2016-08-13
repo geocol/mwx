@@ -1,5 +1,6 @@
 AnyEvent~7.12
 AnyEvent::HTTP~2.22
+AnyEvent::IO
 Canary::Stability~2011
 Carp~1.38
 Cwd~3.62
@@ -11,13 +12,13 @@ File::Path~2.12
 File::Temp~0.2304
 Getopt::Long~2.49
 HTTP::Date~6.02
-HTTP::Request~6.11
+HTTP::Response~6.11
 IO::HTML~1.001
 IO::Handle~1.28
 JSON::XS~3.02
 LWP::MediaTypes~6.02
 MIME::Base64~3.15
-Net::SSLeay~1.77
+Net::SSLeay~1.78
 Path::Class~0.36
 Path::Tiny~0.096
 Pod::Text~4.07
@@ -26,8 +27,9 @@ Proc::Wait3~0.05
 Scalar::Util~1.45
 Socket~2.024
 Term::ANSIColor~4.05
+Test::Builder~1.302052
 Test::NoWarnings~1.04
-Test::Tester~1.302049
+Test::Tester~1.302052
 Time::HiRes~1.9739
 Time::Local~1.2300
 Types::Serialiser~1.0
