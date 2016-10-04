@@ -26,7 +26,7 @@ Proc::Wait3~0.05
 Scalar::Util~1.46
 Socket~2.024
 Term::ANSIColor~4.05
-Test::Builder~1.302059
+Test::More~1.302059
 Time::HiRes~1.9740
 Time::Local~1.24
 Types::Serialiser~1.0
