@@ -1,6 +1,6 @@
 AnyEvent~7.13
 AnyEvent::HTTP~2.23
-AnyEvent::Socket
+AnyEvent::Util
 Canary::Stability~2012
 Carp~1.38
 Cwd~3.62
@@ -33,4 +33,4 @@ Time::Local~1.24
 Types::Serialiser~1.0
 URI~1.71
 common::sense~3.74
-parent~0.234
+parent~0.236
