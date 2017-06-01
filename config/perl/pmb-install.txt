@@ -1,6 +1,6 @@
 AnyEvent~7.13
 AnyEvent::HTTP~2.23
-AnyEvent::Socket
+AnyEvent::IO
 Canary::Stability~2012
 Carp~1.38
 Cwd~3.62
@@ -8,7 +8,7 @@ Encode~2.89
 Encode::Locale~1.05
 Exporter~5.72
 Exporter::Lite~0.08
-File::Path~2.12
+File::Path~2.13
 File::Temp~0.2304
 Getopt::Long~2.5
 HTTP::Date~6.02
