@@ -11,7 +11,7 @@ File::Path~2.15
 File::Temp~0.2304
 Getopt::Long~2.5
 HTTP::Date~6.02
-HTTP::Response~6.13
+HTTP::Request~6.13
 IO::HTML~1.001
 IO::Handle~1.28
 JSON::XS~3.04
@@ -26,7 +26,7 @@ Proc::Wait3~0.05
 Scalar::Util~1.49
 Socket~2.024
 Term::ANSIColor~4.06
-Test::More~1.302112
+Test::Builder~1.302113
 Time::HiRes~1.9746
 Time::Local~1.25
 Types::Serialiser~1.0
