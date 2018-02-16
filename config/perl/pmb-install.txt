@@ -1,5 +1,6 @@
 AnyEvent~7.14
 AnyEvent::HTTP~2.23
+AnyEvent::Socket
 Canary::Stability~2012
 Carp~1.38
 Cwd~3.62
@@ -27,7 +28,7 @@ Scalar::Util~1.49
 Socket~2.027
 Term::ANSIColor~4.06
 Test::More~1.302122
-Time::HiRes~1.9753
+Time::HiRes~1.9754
 Time::Local~1.25
 Types::Serialiser~1.0
 URI~1.73
