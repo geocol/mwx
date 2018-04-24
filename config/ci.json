@@ -1,0 +1,20 @@
+{
+  "travisci": {
+    "pmbp": "5.10+",
+    "notifications": "suika",
+    "merger": true
+  },
+  "circleci": {
+    "docker-build": "quay.io/geocol/mwx",
+    "build": [
+      "git submodule update --init",
+      "rm -fr modules/*/bin modules/*/.git modules/*/t modules/*/t_deps"
+    ],
+    "tests": [
+      "docker run --name server -d -p 5511:8080 quay.io/geocol/mwx /server; sleep 10",
+      "curl -f http://localhost:5511/p/en/Wikipedia/text",
+      "docker logs server"
+    ],
+    "gaa": true
+  }
+}
