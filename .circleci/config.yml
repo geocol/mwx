@@ -1,0 +1,79 @@
+{
+   "jobs" : {
+      "build" : {
+         "environment" : {
+            "CIRCLE_ARTIFACTS" : "/tmp/circle-artifacts"
+         },
+         "machine" : {
+            "enabled" : true
+         },
+         "steps" : [
+            "checkout",
+            {
+               "run" : {
+                  "command" : "mkdir -p $CIRCLE_ARTIFACTS"
+               }
+            },
+            {
+               "run" : {
+                  "command" : "git submodule update --init"
+               }
+            },
+            {
+               "run" : {
+                  "command" : "rm -fr modules/*/bin modules/*/.git modules/*/t modules/*/t_deps"
+               }
+            },
+            {
+               "run" : {
+                  "command" : "docker info"
+               }
+            },
+            {
+               "run" : {
+                  "command" : "docker build -t quay.io/geocol/mwx ."
+               }
+            },
+            {
+               "run" : {
+                  "command" : "docker run --name server -d -p 5511:8080 quay.io/geocol/mwx /server; sleep 10"
+               }
+            },
+            {
+               "run" : {
+                  "command" : "curl -f http://localhost:5511/p/en/Wikipedia/text"
+               }
+            },
+            {
+               "run" : {
+                  "command" : "docker logs server"
+               }
+            },
+            {
+               "store_artifacts" : {
+                  "path" : "/tmp/circle-artifacts"
+               }
+            },
+            {
+               "deploy" : {
+                  "command" : "if [ \u0022${CIRCLE_BRANCH}\u0022 == \u0022master\u0022 ]; then\u000Adocker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS quay.io || docker login -u $DOCKER_USER -p $DOCKER_PASS quay.io\u000Afi"
+               }
+            },
+            {
+               "deploy" : {
+                  "command" : "if [ \u0022${CIRCLE_BRANCH}\u0022 == \u0022master\u0022 ]; then\u000Adocker push quay.io/geocol/mwx && curl -sSLf $BWALL_URL -X POST\u000Afi"
+               }
+            }
+         ]
+      }
+   },
+   "version" : 2,
+   "workflows" : {
+      "build" : {
+         "jobs" : [
+            "build"
+         ]
+      },
+      "version" : 2
+   }
+}
