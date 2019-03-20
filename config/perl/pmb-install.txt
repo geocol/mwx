@@ -11,11 +11,11 @@ File::Path~2.16
 File::Temp~0.2309
 Getopt::Long~2.5
 HTTP::Date~6.02
-HTTP::Request~6.18
+HTTP::Response~6.18
 IO::HTML~1.001
 IO::Handle~1.39
 JSON::XS~4.02
-LWP::MediaTypes~6.02
+LWP::MediaTypes~6.04
 MIME::Base64~3.15
 Net::SSLeay~1.85
 Path::Class~0.37
