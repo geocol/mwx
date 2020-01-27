@@ -30,7 +30,7 @@ Socket~2.029
 Term::ANSIColor~5.01
 Test::More~1.302171
 Time::HiRes~1.9760
-Time::Local~1.28
+Time::Local~1.30
 Time::Zone~2.24
 Types::Serialiser~1.0
 URI~1.76
