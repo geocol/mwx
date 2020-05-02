@@ -4,7 +4,7 @@ AnyEvent::HTTP~2.25
 Canary::Stability~2013
 Carp~1.50
 Cwd~3.75
-Encode~3.05
+Encode~3.06
 Encode::Locale~1.05
 Exporter~5.74
 Exporter::Lite~0.08
