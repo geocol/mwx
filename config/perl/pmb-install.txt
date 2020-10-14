@@ -25,12 +25,12 @@ Path::Tiny~0.114
 Pod::Perldoc~3.28
 Pod::Simple~3.41
 Pod::Text~4.14
-Pod::Usage~2.00
+Pod::Usage~2.01
 Proc::Wait3~0.05
 Scalar::Util~1.55
 Socket~2.030
 Term::ANSIColor~5.01
-Test::More~1.302181
+Test::Builder~1.302181
 Time::HiRes~1.9764
 Time::Local~1.30
 Time::Zone~2.24
