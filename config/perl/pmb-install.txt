@@ -13,7 +13,7 @@ File::Path~2.18
 File::Temp~0.2311
 Getopt::Long~2.52
 HTTP::Date~6.05
-HTTP::Request~6.27
+HTTP::Response~6.27
 IO::HTML~1.004
 IO::Handle~1.45
 JSON::XS~4.03
@@ -36,6 +36,6 @@ Time::HiRes~1.9764
 Time::Local~1.30
 Time::Zone~2.24
 Types::Serialiser~1.01
-URI~5.06
+URI~5.07
 common::sense~3.75
 parent~0.238
